@@ -75,5 +75,4 @@ Vermoo-Cow-Project/
 ## 🙏 Acknowledgments
 Thanks to Evan (Bottango) for hardware and support.
 
-## 📜 License
-MIT License — free use, modification, attribution appreciated.
+
