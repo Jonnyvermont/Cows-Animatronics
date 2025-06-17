@@ -1,0 +1,49 @@
+# Arduino build files
+*.bin
+*.elf
+*.hex
+*.o
+*.d
+*.map
+*.lst
+*.eep
+
+# Arduino build output directories
+build/
+*.dep/
+
+# Logs
+*.log
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+._*
+
+# Editor or IDE cache
+*.swp
+*.swo
+*.bak
+*.tmp
+*.idea/
+.vscode/
+*.code-workspace
+
+# Backup files
+*~
+*.old
+
+# Node, Python, or other system files (if any)
+node_modules/
+dist/
+__pycache__/
+*.pyc
+
+# Misc
+*.zip
+*.tar.gz
+*.7z
+*.rar
+
