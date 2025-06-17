@@ -1,4 +1,4 @@
-import requests
+import requests # makes requests to Bottange API
 import time
 from datetime import datetime
 
