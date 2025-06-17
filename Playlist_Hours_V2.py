@@ -4,8 +4,8 @@ from datetime import datetime
 
 # Initialize variables
 animIndex = 0  # Track the current animation we want to play
-maxAnim = 7    # Number of animations available
-timeToWait = 3  # Time to wait between animations in seconds
+maxAnim = 5    # Number of animations available
+timeToWait = 10  # Time to wait between animations in seconds
 
 # Define operating hours (24-hour format)
 operating_hours = {
@@ -57,23 +57,18 @@ def playAnim(animation_index):
         return False
 
 # Function to check if the animation is done
-def animNotDone():
+def animIsPlaying():
     url = 'http://localhost:59224/PlaybackState/'
     print("Sending request to get playback state")
     
     # Make the GET request to fetch the playback state
     try:
         response = requests.get(url)
-        print(f"Response: {response.status_code}, {response.text}")
-        if response.status_code >= 200 and response.status_code < 300:
+        print(f"Response: {response.status_code}")
+        if response.status_code == 200:
             playback_state = response.json()
-            isPlaying = playback_state['isPlaying']
-            playbackTimeInMS = playback_state['playbackTimeInMS']
-            durationInMS = playback_state['durationInMS']
-            elapsed_time = playbackTimeInMS / 1000.0
-            duration = durationInMS / 1000.0
-            print(f"Animation playing. Elapsed time: {elapsed_time:.2f}s / {duration:.2f}s")
-            return isPlaying
+            print(f"playback state is : {playback_state['isPlaying']}")
+            return playback_state['isPlaying']
         else:
             return False
     except requests.exceptions.RequestException as e:
@@ -83,33 +78,34 @@ def animNotDone():
 # Ask user if they want to use operating hours
 use_operating_hours = input("Use Operating Hours? (Y/N): ").strip().lower() == 'y'
 
-# Fetch the list of animations
-animations = fetchAnimations()
-maxAnim = len(animations)  # Set maxAnim to the number of available animations
-
-if maxAnim == 0:
-    print("No animations available. Exiting.")
-    exit(1)
-
 # Main loop to play animations in sequence
 while True:
     if use_operating_hours:
         if is_within_operating_hours():
             # Play the current animation
+            print(f"request playing {animIndex}")
             if playAnim(animIndex):
+                print("waiting 5 seconds to allow jogs, etc...")
+                time.sleep(5)  # Wait 5 seconds to allow for jogs
+                
                 # Increment the animation index
                 animIndex += 1
                 
                 # Wait until the current animation is done
-                while animNotDone():
+                while animIsPlaying():
+                    print("waiting...")
                     time.sleep(1)  # Wait a second so we're not spamming checks
                 
+                print("Done!")
                 # If we are at the last animation, reset to the first
                 if animIndex >= maxAnim:
-                    animIndex = 0
+                    animIndex = 0            
+                    print("Loop Back to 0")
                 
                 # Wait before playing the next animation
+                print("waiting to trigger next")
                 time.sleep(timeToWait)
+                print("wait complete")
             else:
                 print("Failed to play animation. Exiting loop.")
                 break  # Exit the loop if unable to play the animation
@@ -118,20 +114,29 @@ while True:
             time.sleep(60)  # Check every minute if we are within operating hours
     else:
         # Play the current animation
+        print(f"request playing {animIndex}")
         if playAnim(animIndex):
+            print("waiting 5 seconds to allow jogs, etc...")
+            time.sleep(5)  # Wait 5 seconds to allow for jogs
+            
             # Increment the animation index
             animIndex += 1
             
             # Wait until the current animation is done
-            while animNotDone():
+            while animIsPlaying():
+                print("waiting...")
                 time.sleep(1)  # Wait a second so we're not spamming checks
             
+            print("Done!")
             # If we are at the last animation, reset to the first
             if animIndex >= maxAnim:
-                animIndex = 0
+                animIndex = 0            
+                print("Loop Back to 0")
             
             # Wait before playing the next animation
+            print("waiting to trigger next")
             time.sleep(timeToWait)
+            print("wait complete")
         else:
             print("Failed to play animation. Exiting loop.")
             break  # Exit the loop if unable to play the animation
