@@ -10,6 +10,7 @@ Date: 7/24/25
 Author: JonnyVermont
 
 CHANGE LOG:
+V1.0 - MAJOR NAME CHANGE - Reorganized git hub and changed name of State Controller to MOO.  
 v3.0 - 7/22/25: MAJOR UPDATE - Implemented sensor-based overlapping movements:
                 - Door opening triggers cow extension immediately upon door open sensor
                 - Cow retraction triggers door closing immediately upon cow in sensor
