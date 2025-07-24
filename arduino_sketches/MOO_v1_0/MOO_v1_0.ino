@@ -49,7 +49,7 @@ SENSOR NOTES:
 - When magnet contacts sensor: pin reads LOW, LED on sensor lights up
 - 100ms debouncing prevents false triggering from electrical noise
 
-v3.0 OPERATION SEQUENCE:
+OPERATION SEQUENCE:
 EXTEND: 
 1. Start opening door
 2. As soon as door open sensor triggers → immediately start extending cow (overlap)
