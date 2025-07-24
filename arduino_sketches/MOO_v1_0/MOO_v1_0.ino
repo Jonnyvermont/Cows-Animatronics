@@ -49,7 +49,7 @@ SENSOR NOTES:
 - When magnet contacts sensor: pin reads LOW, LED on sensor lights up
 - 100ms debouncing prevents false triggering from electrical noise
 
-==============================================================================
+============================================================================
 */
 
 // Include libraries - these add extra functions to the code
