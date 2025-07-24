@@ -1,6 +1,9 @@
 /*
 ================================================================================
-ANIMATRONIC COW CONTROLLER
+M.O.O - Mechanical Operations Orchestrator
+Coordinating B.E.E.F. and C.A.L.F. systems for seamless bovine automation
+├── B.E.E.F. (Bovine Extension Evaluation Framework)
+└── C.A.L.F. (Cow Actuator Location Feedback)
 ================================================================================
 Version: 4.0
 Date: 7/24/25
