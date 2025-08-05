@@ -124,9 +124,9 @@ float maxSafeYawRight = 20.0;    // Maximum safe right angle (positive degrees)
 
 // System control flags - these turn features on/off
 bool bypassMonitors = true;          // If true, ignores all safety sensors (v3.0: changed default to false)
-bool verboseMode = false;             // If true, shows detailed sensor status constantly
-bool eventOnlyMode = true;            // If true, only shows sensor events when they happen
-bool disableImpulseCow = true;        // Set to true to disable by default (use EnableImpulse command to activate)
+bool verboseMode = true;             // If true, shows detailed sensor status constantly
+bool eventOnlyMode = false;            // If true, only shows sensor events when they happen
+bool disableImpulseCow = false;        // Set to true to disable by default (use EnableImpulse command to activate)
 bool debugImpulseCow = true;          // Enable debugging of Impulse Cow signals
 
 //FOR TESTING *****************************************************
@@ -144,6 +144,12 @@ bool lastImpulseRetractState = false; // Track previous state (LOW = default, HI
 // Physical button debouncing variables
 unsigned long lastButtonExtendTime = 0;
 unsigned long lastButtonRetractTime = 0;
+
+// ─── Concise status-panel globals ─────────────────────────────
+bool statusPanelMode = false;           // live dashboard ON/OFF
+const unsigned long panelInterval = 5000;    // refresh every 0.5 s
+unsigned long lastPanelRefresh = 0;
+
 const unsigned long buttonDebounceTime = 500; // 500ms minimum between button presses
 
 // Serial command processing variables
@@ -265,6 +271,10 @@ void checkCalibrationTrigger() {
 
 void loop()
 {
+    if (statusPanelMode) {
+    drawStatusPanel();
+    return;          // <— ADD THIS
+  }
 
  
   // Handle serial commands
@@ -640,6 +650,43 @@ if (debugImpulseCow && !phantomMonitorMode && millis() - lastStatusReport > 5000
   }
 }
 
+// ───────────────── STATUS PANEL ──────────────────────────────
+void drawStatusPanel()
+{
+  if (millis() - lastPanelRefresh < panelInterval) return;
+  lastPanelRefresh = millis();
+
+  Serial.print("\033[2J\033[H");   // clear screen + home cursor
+
+  Serial.println("┌─────────────  M.O.O.  STATUS  ─────────────┐");
+  Serial.print  ("│  State: ");
+  switch (currentStateCow) {
+    case state_Closed_In:  Serial.print("CLOSED & IN   "); break;
+    case doorOpening:      Serial.print("DOOR OPENING   "); break;
+    case cowExtending:     Serial.print("COW EXTENDING  "); break;
+    case state_Open_Out:   Serial.print("OPEN & OUT     "); break;
+    case cowRetracting:    Serial.print("COW RETRACTING "); break;
+    case doorClosing:      Serial.print("DOOR CLOSING   "); break;
+  }
+  Serial.printf("│ Uptime: %5lus │\n", millis()/1000);
+
+  Serial.println("├────────────────────────────────────────────┤");
+  Serial.printf ("│ GPIO15 EXT: %s │ GPIO4  RET: %s │\n",
+                 digitalRead(impulseExtend) ? "HIGH" : "LOW ",
+                 digitalRead(impulseRetract)? "HIGH" : "LOW ");
+  Serial.printf ("│ BTN32 OPEN: %s │ BTN33 CLOSE: %s │\n",
+                 digitalRead(openButton) ? "HIGH" : "LOW ",
+                 digitalRead(closeButton)? "HIGH" : "LOW ");
+  Serial.printf ("│ CowOut21:%s CowIn19:%s DoorOpen23:%s DoorClosed22:%s │\n",
+                 !digitalRead(sensor_cowRigOut)     ? "ON " : "OFF",
+                 !digitalRead(sensor_cowRigIn)      ? "ON " : "OFF",
+                 !digitalRead(sensor_doorOpen)      ? "ON " : "OFF",
+                 !digitalRead(sensor_doorClosed)    ? "ON " : "OFF");
+
+  Serial.println("└────────────────────────────────────────────┘");
+}
+
+
 // Handle serial commands for manual testing
 void handleSerialCommands() {
   while (Serial.available() > 0) {
@@ -650,6 +697,7 @@ void handleSerialCommands() {
         processCommand(inputCommand);
         inputCommand = "";
       }
+      
     } else {
       inputCommand += inChar;
     }
@@ -892,6 +940,15 @@ void processCommand(String command) {
     Serial.println("  DebugImpulse - Toggle enhanced debug mode for Impulse signals");
     Serial.println("  CheckImpulse - Detailed Impulse pin status report");
   }
+    else if (command == "panel") {          // toggle live dashboard
+    statusPanelMode = !statusPanelMode;
+    Serial.println(String("Status panel ") +
+                   (statusPanelMode ? "ENABLED" : "DISABLED"));
+  }
+  else if (command == "status") {         // one-time snapshot
+    drawStatusPanel();
+  }
+
   else {
     Serial.println("Unknown command. Type 'help' for available commands.");
   }
