@@ -4,91 +4,16 @@ M.O.O - Mechanical Operations Orchestrator
 Coordinating B.E.E.F. and C.A.L.F. systems for seamless bovine automation
 ├── B.E.E.F. (Bovine Extension Evaluation Framework)
 └── C.A.L.F. (Cow Actuator Location Feedback)
+
+M.O.O. handles logic, B.E.E.F. tracks heads, and C.A.L.F. confirms locations. 
 ================================================================================
-Version: 4.0
+Version: 1.0
 Date: 7/24/25
 Author: JonnyVermont
 
 CHANGE LOG:
-v3.0 - 7/22/25: MAJOR UPDATE - Implemented sensor-based overlapping movements:
-                - Door opening triggers cow extension immediately upon door open sensor
-                - Cow retraction triggers door closing immediately upon cow in sensor
-                - Removed time-based transitions in favor of sensor-driven state changes
-                - Added safety timeouts (original time + 2 seconds) to prevent stuck motors
-                - Much faster overall operation with overlapping movements
-                - ENHANCED DEBUGGING: Added detailed trigger source identification
-v2.9 - 7/19/25: Added button debouncing (500ms) to prevent button spam/bouncing issues
-v2.8 - 7/19/25: Added safety LED indicator - lights when cow head is unsafe (GPIO 2)
-v2.7 - 7/19/25: FIXED corrupted safety limits issue - ResetLimits command working,
-                added debug output for safety limit verification, improved limit logic
+V1.0 - MAJOR NAME CHANGE - Reorganized git hub and changed name of State Controller to MOO.  
 
-================================================================================
-CRITICAL ISSUE FOR EVAN - BOTTANGO INTEGRATION PROBLEM
-================================================================================
-
-ISSUE DISCOVERED: GPIO 13 (Impulse Cow extend signal) is automatically going 
-HIGH/LOW even when Bottango is NOT sending any commands. This causes the cow 
-system to trigger extend sequences randomly without user input.
-
-UPDATE: Moved from GPIO 13 to GPIO 15 - STILL HAPPENING! Problem may be broader
-than just one pin. Enhanced debugging added to identify exact trigger sources.
-
-SYMPTOMS OBSERVED:
-- GPIO pins oscillating HIGH/LOW every ~2 seconds
-- System responds by opening door and extending cow
-- This happens even when Bottango software is not sending triggers
-- Debug output shows: "DEBUG: Impulse Extend pin changed to HIGH" followed by 
-  "Extend due to Impulse Cow 1&2 signal (debounced)"
-
-WORK COMPLETED:
-1. Fixed code to expect HIGH signals from Bottango (was expecting LOW)
-2. Added 2-second debouncing to prevent rapid oscillation  
-3. Added debug commands: EnableImpulse, DisableImpulse, DebugImpulse, CheckImpulse
-4. Confirmed code now responds correctly to Bottango HIGH signals
-5. BUT: GPIO pins are triggering automatically without Bottango commands
-6. MOVED from GPIO 13 to GPIO 15 - problem persists
-7. ADDED ENHANCED DEBUGGING to identify exact trigger sources
-
-POTENTIAL HARDWARE CAUSES:
-- Multiple ESP32 GPIO pins malfunctioning
-- Electromagnetic interference from nearby equipment
-- Power supply noise affecting multiple GPIO inputs
-- Cross-talk between wires or loose connections
-- Broader ESP32 board failure affecting multiple pins
-
-TESTING NEEDED:
-1. Physical disconnect ALL Impulse wires, check if ESP32 pins still oscillate
-2. Try different power source for ESP32 (battery vs USB vs external supply)
-3. Check for EMI sources near ESP32
-4. Test ESP32 in different physical location away from motors/actuators
-5. Try different ESP32 board to isolate hardware vs environmental issues
-
-CURRENT WORKAROUND:
-- DisableImpulse command disables GPIO monitoring (system safe)
-- Physical buttons (GPIO 32/33) still work for manual operation
-- Serial commands work for testing (CowOut, CowIn, etc.)
-- GPIO 18 calibration trigger works correctly
-
-BOTTANGO INTEGRATION STATUS:
-- Code is ready and tested for proper Bottango HIGH signal integration
-- Problem is hardware-level or environmental, not software-level
-- Once hardware issue resolved, Bottango should work perfectly
-
-FOR EVAN: Investigate power supply, EMI sources, and try different ESP32 board.
-
-================================================================================
-v2.6 - 7/17/25: Added Bottango calibration trigger system - waits for external trigger
-                before gyroscope calibration, ensures heads are straight first
-v2.5 - 7/17/25: Added gyroscope yaw calculation, removed roll from safety check,
-                now checks PITCH (up/down) and YAW (left/right) only
-v2.4 - 7/17/25: Added MPU-6050 cow head angle monitoring for Cow #1, updated button pins,
-                added angle safety checking before cow extension
-v2.3 - 7/17/25: Updated for Hall sensors (active LOW), correct timing values (8s/10s),
-                added 100ms debouncing, verbose sensor monitoring
-v2.2 - 7/16/25: [Missing version - gap in documentation]
-v2.1 - 7/16/25: Updated variable names - la_ prefix for actuators, solar signals
-v2.0 - 7/16/25: Renamed all variables for clarity, updated state names
-v1.3 - 7/6/24:  Original working version with basic state machine
 
 DESCRIPTION:
 Controls linear actuators for animatronic cow system. Door opens first, 
@@ -124,17 +49,7 @@ SENSOR NOTES:
 - When magnet contacts sensor: pin reads LOW, LED on sensor lights up
 - 100ms debouncing prevents false triggering from electrical noise
 
-v3.0 OPERATION SEQUENCE:
-EXTEND: 
-1. Start opening door
-2. As soon as door open sensor triggers → immediately start extending cow (overlap)
-3. Stop cow motor when cow out sensor triggers
-
-RETRACT:
-1. Start retracting cow  
-2. As soon as cow in sensor triggers → immediately start closing door (overlap)
-3. Stop door motor when door closed sensor triggers
-================================================================================
+============================================================================
 */
 
 // Include libraries - these add extra functions to the code
@@ -209,9 +124,9 @@ float maxSafeYawRight = 20.0;    // Maximum safe right angle (positive degrees)
 
 // System control flags - these turn features on/off
 bool bypassMonitors = true;          // If true, ignores all safety sensors (v3.0: changed default to false)
-bool verboseMode = false;             // If true, shows detailed sensor status constantly
-bool eventOnlyMode = true;            // If true, only shows sensor events when they happen
-bool disableImpulseCow = true;        // Set to true to disable by default (use EnableImpulse command to activate)
+bool verboseMode = true;             // If true, shows detailed sensor status constantly
+bool eventOnlyMode = false;            // If true, only shows sensor events when they happen
+bool disableImpulseCow = false;        // Set to true to disable by default (use EnableImpulse command to activate)
 bool debugImpulseCow = true;          // Enable debugging of Impulse Cow signals
 
 //FOR TESTING *****************************************************
@@ -229,6 +144,12 @@ bool lastImpulseRetractState = false; // Track previous state (LOW = default, HI
 // Physical button debouncing variables
 unsigned long lastButtonExtendTime = 0;
 unsigned long lastButtonRetractTime = 0;
+
+// ─── Concise status-panel globals ─────────────────────────────
+bool statusPanelMode = false;           // live dashboard ON/OFF
+const unsigned long panelInterval = 5000;    // refresh every 0.5 s
+unsigned long lastPanelRefresh = 0;
+
 const unsigned long buttonDebounceTime = 500; // 500ms minimum between button presses
 
 // Serial command processing variables
@@ -350,6 +271,10 @@ void checkCalibrationTrigger() {
 
 void loop()
 {
+    if (statusPanelMode) {
+    drawStatusPanel();
+    return;          // <— ADD THIS
+  }
 
  
   // Handle serial commands
@@ -725,6 +650,43 @@ if (debugImpulseCow && !phantomMonitorMode && millis() - lastStatusReport > 5000
   }
 }
 
+// ───────────────── STATUS PANEL ──────────────────────────────
+void drawStatusPanel()
+{
+  if (millis() - lastPanelRefresh < panelInterval) return;
+  lastPanelRefresh = millis();
+
+  Serial.print("\033[2J\033[H");   // clear screen + home cursor
+
+  Serial.println("┌─────────────  M.O.O.  STATUS  ─────────────┐");
+  Serial.print  ("│  State: ");
+  switch (currentStateCow) {
+    case state_Closed_In:  Serial.print("CLOSED & IN   "); break;
+    case doorOpening:      Serial.print("DOOR OPENING   "); break;
+    case cowExtending:     Serial.print("COW EXTENDING  "); break;
+    case state_Open_Out:   Serial.print("OPEN & OUT     "); break;
+    case cowRetracting:    Serial.print("COW RETRACTING "); break;
+    case doorClosing:      Serial.print("DOOR CLOSING   "); break;
+  }
+  Serial.printf("│ Uptime: %5lus │\n", millis()/1000);
+
+  Serial.println("├────────────────────────────────────────────┤");
+  Serial.printf ("│ GPIO15 EXT: %s │ GPIO4  RET: %s │\n",
+                 digitalRead(impulseExtend) ? "HIGH" : "LOW ",
+                 digitalRead(impulseRetract)? "HIGH" : "LOW ");
+  Serial.printf ("│ BTN32 OPEN: %s │ BTN33 CLOSE: %s │\n",
+                 digitalRead(openButton) ? "HIGH" : "LOW ",
+                 digitalRead(closeButton)? "HIGH" : "LOW ");
+  Serial.printf ("│ CowOut21:%s CowIn19:%s DoorOpen23:%s DoorClosed22:%s │\n",
+                 !digitalRead(sensor_cowRigOut)     ? "ON " : "OFF",
+                 !digitalRead(sensor_cowRigIn)      ? "ON " : "OFF",
+                 !digitalRead(sensor_doorOpen)      ? "ON " : "OFF",
+                 !digitalRead(sensor_doorClosed)    ? "ON " : "OFF");
+
+  Serial.println("└────────────────────────────────────────────┘");
+}
+
+
 // Handle serial commands for manual testing
 void handleSerialCommands() {
   while (Serial.available() > 0) {
@@ -735,6 +697,7 @@ void handleSerialCommands() {
         processCommand(inputCommand);
         inputCommand = "";
       }
+      
     } else {
       inputCommand += inChar;
     }
@@ -977,6 +940,15 @@ void processCommand(String command) {
     Serial.println("  DebugImpulse - Toggle enhanced debug mode for Impulse signals");
     Serial.println("  CheckImpulse - Detailed Impulse pin status report");
   }
+    else if (command == "panel") {          // toggle live dashboard
+    statusPanelMode = !statusPanelMode;
+    Serial.println(String("Status panel ") +
+                   (statusPanelMode ? "ENABLED" : "DISABLED"));
+  }
+  else if (command == "status") {         // one-time snapshot
+    drawStatusPanel();
+  }
+
   else {
     Serial.println("Unknown command. Type 'help' for available commands.");
   }
